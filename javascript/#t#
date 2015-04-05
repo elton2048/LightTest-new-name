@@ -1,0 +1,13 @@
+b2World.prototype.RayCast=
+function(callback,point1,point2){
+this.rayCastCallback=callback;
+b2World_RayCast(this.ptr,point1.x,point1.y,point2.x,point2.y)};
+b2World.prototype.SetContactListener=function(listener){this.listener=listener;
+b2World_SetContactListener(this.ptr)};
+b2World.prototype.SetGravity=function(gravity){b2World_SetGravity(this.ptr,gravity.x,gravity.y)};
+b2World.prototype.Step=function(steps,vIterations,pIterations){b2World_Step(this.ptr,steps,vIterations,pIterations)};
+var b2WheelJoint_SetMotorSpeed=Module.cwrap("b2WheelJoint_SetMotorSpeed","null",["number","number"]);
+var b2WheelJoint_SetSpringFrequencyHz=Module.cwrap("b2WheelJoint_SetSpringFrequencyHz","null",["number","number"]);
+function b2WheelJoint(def){this.next=null;
+this.ptr=null}b2WheelJoint.prototype.SetMotorSpeed=function(speed){b2WheelJoint_SetMotorSpeed(this.ptr,speed)};
+b2WheelJoint.prototype.SetSpringFrequencyHz=function(hz){b2WheelJoint_SetSpringFrequencyHz(this.ptr,hz)};

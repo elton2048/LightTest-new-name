@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<style>
+	body {
+		background-color: grey;
+		margin: 0;
+		overflow: hidden;
+	}
+	</style>
+	<script src="javascript/liquidfun.js" ></script>
+	<script src="javascript/renderer.js" ></script>
+	<script src="javascript/three.js" ></script>
+	<script src="javascript/testbed.js" ></script>
+	<script src="javascript/utils.js" ></script>
+
+	<script src="testWorld.js" ></script>
+	<body onload="initTestbed()" ></body>
+ <div style="position:absolute;float:right;z-index:1;border:1px solid #ccc;font:16px/26px Georgia, Garamond, Serif;overflow:auto;background:white">
+
+      <select id="tests" onchange="testSwitch(this.value)">
+        <option value="TestWorld" selected="selected">Wave Machine</option>
+      </select>
+
+  </div>
+</html>
