@@ -66,7 +66,7 @@ bodyDef1.position.Set(400,80);
 // Change TEST ANGLE
 // Need conversion to degree, clockwise direction for degree
 bodyDef1.angle = 150 * (Math.PI/180);
-bodyDef1.userData = ["mirror", true];
+bodyDef1.userData = {Type:"Mirror"};
 
 var box2 = world.CreateBody(bodyDef1);
 box2.CreateFixture(fixDef);
