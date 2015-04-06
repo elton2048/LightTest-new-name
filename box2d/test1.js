@@ -81,6 +81,8 @@ var p2 = new b2Vec2(400, 200);
 var ray_width = 15 / 2;
 var ray_length;
 var intersectionPoint = new b2Vec2();
+var leftIntersectionPoint = new b2Vec2();
+var rightIntersectionPoint = new b2Vec2();
 var intersectionNormal = new b2Vec2();
 var intersectionEnd = new b2Vec2();
 var normalEnd = new b2Vec2();
@@ -102,24 +104,29 @@ function update() {
 }
 
 function raytest() {
-	input.p1 = initialPoint;
-	input.p2 = p2;
 	ray_length = subtracted_vertex(p2, initialPoint).Length();
 	input.maxFraction = 1;
 	closestFraction = 1;
 	var centerPoint;
+	var leftPoint;
+	var rightPoint;
 	// Create two point for the representation of light beam
 	var startOfBeam =
-	[rotated_vertex(intersectionPoint, initialPoint, 90, "NULL", ray_width),
-		rotated_vertex(intersectionPoint, initialPoint, -90, "NULL", ray_width)
+	[rotated_vertex(intersectionPoint, initialPoint, -90, "NULL", ray_width),
+		rotated_vertex(intersectionPoint, initialPoint, 90, "NULL", ray_width)
 	];
 	var endOfBeam =
-	[rotated_vertex(initialPoint, startOfBeam[0], 90, "NULL", ray_length),
-		rotated_vertex(initialPoint, startOfBeam[1], -90, "NULL", ray_length),
+	[rotated_vertex(initialPoint, startOfBeam[0], -90, "NULL", ray_length),
+		rotated_vertex(initialPoint, startOfBeam[1], 90, "NULL", ray_length),
 	];
 	var b = new b2BodyDef();
 	var f = new b2FixtureDef();
 	var rayDone = false;
+
+	/* input.p1 = initialPoint;
+	   input.p2 = p2; */
+	input.p1 = startOfBeam[0];
+	input.p2 = endOfBeam[0];
 
 	/* This part is to get the vertices of body for rendering use, not use in background calculation in this moment. */
 	for(b = world.GetBodyList(); b; b = b.GetNext()) {
@@ -132,12 +139,15 @@ function raytest() {
 		for(f = b.GetFixtureList(); f; f = f.GetNext()) {
 			if(!f.RayCast(output, input) && !rayDone) {
 				centerPoint = initialRay(intersectionPoint);
+				leftPoint = initialRay(intersectionPoint);
+				rightPoint = initialRay(intersectionPoint);
 				continue;
 			}
 			else if(output.fraction < closestFraction)  {
 				console.log(ray_length);
 				if(b.GetUserData().Type == "Mirror") {
 					closestFraction = output.fraction;
+					console.log(closestFraction);
 
 					// Position of intersection point at the mirror
 
@@ -158,7 +168,9 @@ function raytest() {
 					   //console.log(b.GetFixtureList().GetShape().GetVertices());
 					   rayDone = true; */
 
-					var centerPoint = rayReflection(initialPoint, intersectionPoint, b, f);
+					centerPoint = rayReflection(initialPoint, intersectionPoint, b, f);
+					leftPoint = rayReflection(startOfBeam[0], leftIntersectionPoint, b, f);
+					rightPoint = rayReflection(startOfBeam[1], rightIntersectionPoint, b, f);
 					rayDone = true;
 					console.log(centerPoint);
 				}
@@ -168,60 +180,25 @@ function raytest() {
 	}
 	intersectionPoint.x = initialPoint.x + closestFraction * (p2.x - initialPoint.x);
 	intersectionPoint.y = initialPoint.y + closestFraction * (p2.y - initialPoint.y);
+
+	leftIntersectionPoint.x = startOfBeam[0].x + closestFraction * (endOfBeam[0].x - startOfBeam[0].x);
+	leftIntersectionPoint.y = startOfBeam[0].y + closestFraction * (endOfBeam[0].y - startOfBeam[0].y);
+
+	rightIntersectionPoint.x = startOfBeam[1].x + closestFraction * (endOfBeam[1].x - startOfBeam[1].x);
+	rightIntersectionPoint.y = startOfBeam[1].y + closestFraction * (endOfBeam[1].y - startOfBeam[1].y);
 	/* console.log(intersectionEnd); */
 	/* normalEnd.x = normalEnd.x;
 	   normalEnd.y = normalEnd.y; */
-	
-	context.strokeStyle = "rgb(255, 255, 255)";
 
-	context.beginPath(); // Start the path
-	context.moveTo(initialPoint.x, initialPoint.y); // Set the path origin
-	context.lineTo(intersectionPoint.x, intersectionPoint.y); // Set the path destination
-	context.closePath(); // Close the path
-	context.stroke();
+	debugDrawLine("rgb(255, 255, 255)", initialPoint, intersectionPoint);
+	debugDrawLine("orange", startOfBeam[0], endOfBeam[0]);
+	debugDrawLine("green", startOfBeam[0], startOfBeam[1]);
+	debugDrawLine("orange", startOfBeam[1], endOfBeam[1]);
+	debugDrawLine("red", intersectionPoint, centerPoint.intersectionEnd);
+	debugDrawLine("red", leftIntersectionPoint, leftPoint.intersectionEnd);
+	debugDrawLine("purple", intersectionPoint, centerPoint.normalEnd);
+	debugDrawLine("yellow", intersectionPoint, centerPoint.reflectedEnd);
 
-	context.strokeStyle = "green"
-
-	context.beginPath(); // Start the path
-	context.moveTo(startOfBeam[0].x, startOfBeam[0].y); // Set the path origin
-	context.lineTo(startOfBeam[1].x, startOfBeam[1].y); // Set the path destination
-	context.closePath(); // Close the path
-	context.stroke();
-
-	context.strokeStyle = "orange"
-	context.beginPath(); // Start the path
-	context.moveTo(startOfBeam[0].x, startOfBeam[0].y); // Set the path origin
-	context.lineTo(endOfBeam[0].x, endOfBeam[0].y); // Set the path destination
-	context.closePath(); // Close the path
-	context.stroke();
-
-	context.strokeStyle = "orange"
-	context.beginPath(); // Start the path
-	context.moveTo(startOfBeam[1].x, startOfBeam[1].y); // Set the path origin
-	context.lineTo(endOfBeam[1].x, endOfBeam[1].y); // Set the path destination
-	context.closePath(); // Close the path
-	context.stroke();
-
-	context.strokeStyle = "red";
-	context.beginPath(); // Start the path
-	context.moveTo(intersectionPoint.x, intersectionPoint.y); // Set the path origin
-	context.lineTo(centerPoint.intersectionEnd.x, centerPoint.intersectionEnd.y); // Set the path destination
-	context.closePath(); // Close the path
-	context.stroke(); // Outline the path
-
-	context.strokeStyle = "purple";
-	context.beginPath(); // Start the path
-	context.moveTo(intersectionPoint.x, intersectionPoint.y); // Set the path origin
-	context.lineTo(centerPoint.normalEnd.x, centerPoint.normalEnd.y); // Set the path destination
-	context.closePath(); // Close the path
-	context.stroke(); // Outline the path
-
-	context.strokeStyle = "yellow";
-	context.beginPath(); // Start the path
-	context.moveTo(intersectionPoint.x, intersectionPoint.y); // Set the path origin
-	context.lineTo(centerPoint.reflectedEnd.x, centerPoint.reflectedEnd.y); // Set the path destination
-	context.closePath(); // Close the path
-	context.stroke(); // Outline the path
 }
 
 document.addEventListener("mousedown", function(e) {
@@ -379,6 +356,10 @@ function angleOfTwoPoints(initial, intersection, final){
 	return angle;
 }
 
+/* To initialize the ray information
+
+   Return : Object
+*/
 function initialRay(target) {
 	return {intersectionEnd: target, normalEnd: target, reflectedEnd: target};
 }
@@ -399,4 +380,14 @@ function rayReflection(initial, target, body, fixture) {
 	/* console.log("Angle = " + refl_angle); */
 	var reflectedEnd = rotated_vertex(normalEnd, target, refl_angle, fixture, 50);
 	return {intersectionEnd: intersectionEnd, normalEnd: normalEnd, reflectedEnd: reflectedEnd};
+}
+
+function debugDrawLine(colour, start, end) {
+	context.strokeStyle = colour;
+
+	context.beginPath();
+	context.moveTo(start.x, start.y);
+	context.lineTo(end.x, end.y);
+	context.closePath();
+	context.stroke();
 }
