@@ -123,24 +123,58 @@ function raytest() {
 	var f = new b2FixtureDef();
 	var rayDone = false;
 
-	/* input.p1 = initialPoint;
-	   input.p2 = p2; */
-	input.p1 = startOfBeam[0];
-	input.p2 = endOfBeam[0];
 
 	/* This part is to get the vertices of body for rendering use, not use in background calculation in this moment. */
 	for(b = world.GetBodyList(); b; b = b.GetNext()) {
 		/* rotated_vertex_array(b); */
 	}
+
+	var fractionPoint = [];
+	for(i = 0; i < 3; i++) {
+		switch(i){
+			case 0:
+				input.p1 = initialPoint;
+				input.p2 = p2;
+				break;
+			case 1:
+				input.p1 = startOfBeam[0];
+				input.p2 = endOfBeam[0];
+				break;
+			case 2:
+				input.p1 = startOfBeam[1];
+				input.p2 = endOfBeam[1];
+				break;
+		}
+		rayDone = false;
+		for(b = world.GetBodyList(); b; b = b.GetNext()) {
+			for(f = b.GetFixtureList(); f; f = f.GetNext()) {
+				if(!f.RayCast(output, input) && !rayDone) {
+					fractionPoint[i] = 1;
+					continue;
+				}
+				else if(output.fraction < closestFraction) {
+					fractionPoint[i] = output.fraction;
+					rayDone = true;
+					console.log(fractionPoint);
+				}
+			}
+		}
+	}
 	/* End of get vertices*/
 
+	/* input.p1 = initialPoint;
+	   input.p2 = p2; */
+	/* input.p1 = startOfBeam[0];
+	   input.p2 = endOfBeam[0]; */
+
 	// Core part to calculate the reflection
+	rayDone = false;
 	for(b = world.GetBodyList(); b; b = b.GetNext())    {
 		for(f = b.GetFixtureList(); f; f = f.GetNext()) {
 			if(!f.RayCast(output, input) && !rayDone) {
-				centerPoint = initialRay(intersectionPoint);
-				leftPoint = initialRay(intersectionPoint);
-				rightPoint = initialRay(intersectionPoint);
+				centerPoint = initialRay(initialPoint, fractionPoint[0], p2);
+				leftPoint = initialRay(startOfBeam[0], fractionPoint[1], endOfBeam[0]);
+				rightPoint = initialRay(startOfBeam[1], fractionPoint[2], endOfBeam[1]);
 				continue;
 			}
 			else if(output.fraction < closestFraction)  {
@@ -168,9 +202,9 @@ function raytest() {
 					   //console.log(b.GetFixtureList().GetShape().GetVertices());
 					   rayDone = true; */
 
-					centerPoint = rayReflection(initialPoint, intersectionPoint, b, f);
-					leftPoint = rayReflection(startOfBeam[0], leftIntersectionPoint, b, f);
-					rightPoint = rayReflection(startOfBeam[1], rightIntersectionPoint, b, f);
+					centerPoint = rayReflection(initialPoint, p2, fractionPoint[0], b, f);
+					leftPoint = rayReflection(startOfBeam[0], endOfBeam[0], fractionPoint[1], b, f);
+					rightPoint = rayReflection(startOfBeam[1], endOfBeam[1], fractionPoint[2], b, f);
 					rayDone = true;
 					console.log(centerPoint);
 				}
@@ -181,8 +215,8 @@ function raytest() {
 	intersectionPoint.x = initialPoint.x + closestFraction * (p2.x - initialPoint.x);
 	intersectionPoint.y = initialPoint.y + closestFraction * (p2.y - initialPoint.y);
 
-	leftIntersectionPoint.x = startOfBeam[0].x + closestFraction * (endOfBeam[0].x - startOfBeam[0].x);
-	leftIntersectionPoint.y = startOfBeam[0].y + closestFraction * (endOfBeam[0].y - startOfBeam[0].y);
+	leftIntersectionPoint.x = startOfBeam[0].x + fractionPoint[1] * (endOfBeam[0].x - startOfBeam[0].x);
+	leftIntersectionPoint.y = startOfBeam[0].y + fractionPoint[1] * (endOfBeam[0].y - startOfBeam[0].y);
 
 	rightIntersectionPoint.x = startOfBeam[1].x + closestFraction * (endOfBeam[1].x - startOfBeam[1].x);
 	rightIntersectionPoint.y = startOfBeam[1].y + closestFraction * (endOfBeam[1].y - startOfBeam[1].y);
@@ -190,14 +224,14 @@ function raytest() {
 	/* normalEnd.x = normalEnd.x;
 	   normalEnd.y = normalEnd.y; */
 
-	debugDrawLine("rgb(255, 255, 255)", initialPoint, intersectionPoint);
-	debugDrawLine("orange", startOfBeam[0], endOfBeam[0]);
-	debugDrawLine("green", startOfBeam[0], startOfBeam[1]);
-	debugDrawLine("orange", startOfBeam[1], endOfBeam[1]);
-	debugDrawLine("red", intersectionPoint, centerPoint.intersectionEnd);
-	debugDrawLine("red", leftIntersectionPoint, leftPoint.intersectionEnd);
-	debugDrawLine("purple", intersectionPoint, centerPoint.normalEnd);
-	debugDrawLine("yellow", intersectionPoint, centerPoint.reflectedEnd);
+	debugDrawLine("rgb(255, 255, 255)", centerPoint.startPoint, centerPoint.intersectionPoint);
+	debugDrawLine("orange", leftPoint.startPoint, leftPoint.intersectionPoint);
+	debugDrawLine("green", leftPoint.startPoint, rightPoint.startPoint);
+	debugDrawLine("orange", rightPoint.startPoint, rightPoint.intersectionPoint);
+	debugDrawLine("red", centerPoint.intersectionPoint, centerPoint.intersectionEnd);
+	/* debugDrawLine("red", leftIntersectionPoint, leftPoint.intersectionEnd); */
+	debugDrawLine("purple", centerPoint.intersectionPoint, centerPoint.normalEnd);
+	debugDrawLine("yellow", centerPoint.intersectionPoint, centerPoint.reflectedEnd);
 
 }
 
@@ -360,12 +394,22 @@ function angleOfTwoPoints(initial, intersection, final){
 
    Return : Object
 */
-function initialRay(target) {
-	return {intersectionEnd: target, normalEnd: target, reflectedEnd: target};
+function initialRay(initial, fraction, target) {
+	var intersectionPoint = new b2Vec2();
+	intersectionPoint.x = initial.x + fraction * (target.x - initial.x);
+	intersectionPoint.y = initial.y + fraction * (target.y - initial.y);
+	return {startPoint: initial,
+		intersectionPoint: intersectionPoint,
+		intersectionEnd: intersectionPoint,
+		normalEnd: intersectionPoint,
+		reflectedEnd: intersectionPoint};
 }
 
-function rayReflection(initial, target, body, fixture) {
+function rayReflection(initial, final, fraction, body, fixture) {
 	// Position of intersection point at the mirror
+	var target = new b2Vec2();
+	target.x = initial.x + fraction * (final.x - initial.x);
+	target.y = initial.y + fraction * (final.y - initial.y);
 	
 	// Calculate the angle between intersectionPoint and initialPoint
 	var angleOfIntersection = angleOfTwoPoints(initial, initial, target);
@@ -379,7 +423,11 @@ function rayReflection(initial, target, body, fixture) {
 	var refl_angle = angleOfTwoPoints(initial, target, normalEnd);
 	/* console.log("Angle = " + refl_angle); */
 	var reflectedEnd = rotated_vertex(normalEnd, target, refl_angle, fixture, 50);
-	return {intersectionEnd: intersectionEnd, normalEnd: normalEnd, reflectedEnd: reflectedEnd};
+	return {startPoint: initial,
+		intersectionPoint: target,
+		intersectionEnd: intersectionEnd,
+		normalEnd: normalEnd,
+		reflectedEnd: reflectedEnd};
 }
 
 function debugDrawLine(colour, start, end) {
