@@ -92,7 +92,8 @@ var shape = world.GetBodyList().GetFixtureList().GetShape().GetVertices();
 output.fraction = 1;
 console.log(world.GetBodyList());
 console.log(world.GetBodyList().GetPosition());
-console.log(world.GetBodyList().GetFixtureList().GetShape().GetVertices()[0]);
+console.log(world.GetBodyList().GetFixtureList());
+console.log(world.GetBodyList().GetNext().GetFixtureList());
 console.log(bodyDef);
 
 var i = 0;
@@ -167,51 +168,8 @@ function raytest() {
 	/* input.p1 = startOfBeam[0];
 	   input.p2 = endOfBeam[0]; */
 
-	// Core part to calculate the reflection
-	rayDone = false;
-	for(b = world.GetBodyList(); b; b = b.GetNext())    {
-		for(f = b.GetFixtureList(); f; f = f.GetNext()) {
-			if(!f.RayCast(output, input) && !rayDone) {
-				centerPoint = initialRay(initialPoint, fractionPoint[0], p2);
-				leftPoint = initialRay(startOfBeam[0], fractionPoint[1], endOfBeam[0]);
-				rightPoint = initialRay(startOfBeam[1], fractionPoint[2], endOfBeam[1]);
-				continue;
-			}
-			else if(output.fraction < closestFraction)  {
-				console.log(ray_length);
-				if(b.GetUserData().Type == "Mirror") {
-					closestFraction = output.fraction;
-					console.log(closestFraction);
+	centerPoint = rayReflection_v2(initialPoint, p2);
 
-					// Position of intersection point at the mirror
-
-					// Calculate the angle between intersectionPoint and initialPoint
-					/* var angleOfIntersection = angleOfTwoPoints(initialPoint, initialPoint, intersectionPoint);
-					   console.log("Angle of intersection: " + angleOfIntersection);
-					   // Set the one end is the vertex end of the shape
-					   intersectionEnd = nearest_vertex_contact(intersectionPoint, rotated_vertex_array(b));
-					   //console.log("intersectionEnd:");
-					   //console.log(intersectionEnd);
-
-
-					   normalEnd = rotated_vertex(intersectionEnd, intersectionPoint, 90, f, 25);
-					   // Angle of reflection
-					   var refl_angle = angleOfTwoPoints(initialPoint, intersectionPoint, normalEnd);
-					   //console.log("Angle = " + refl_angle);
-					   reflectedEnd = rotated_vertex(normalEnd, intersectionPoint, refl_angle, f, 50);
-					   //console.log(b.GetFixtureList().GetShape().GetVertices());
-					   rayDone = true; */
-
-					centerPoint = rayReflection(initialPoint, p2, fractionPoint[0], b, f);
-					leftPoint = rayReflection(startOfBeam[0], endOfBeam[0], fractionPoint[1], b, f);
-					rightPoint = rayReflection(startOfBeam[1], endOfBeam[1], fractionPoint[2], b, f);
-					rayDone = true;
-					console.log(centerPoint);
-				}
-			}
-		}
-
-	}
 	intersectionPoint.x = initialPoint.x + closestFraction * (p2.x - initialPoint.x);
 	intersectionPoint.y = initialPoint.y + closestFraction * (p2.y - initialPoint.y);
 
@@ -225,9 +183,9 @@ function raytest() {
 	   normalEnd.y = normalEnd.y; */
 
 	debugDrawLine("rgb(255, 255, 255)", centerPoint.startPoint, centerPoint.intersectionPoint);
-	debugDrawLine("orange", leftPoint.startPoint, leftPoint.intersectionPoint);
-	debugDrawLine("green", leftPoint.startPoint, rightPoint.startPoint);
-	debugDrawLine("orange", rightPoint.startPoint, rightPoint.intersectionPoint);
+	/* debugDrawLine("orange", leftPoint.startPoint, leftPoint.intersectionPoint);
+	   debugDrawLine("green", leftPoint.startPoint, rightPoint.startPoint);
+	   debugDrawLine("orange", rightPoint.startPoint, rightPoint.intersectionPoint); */
 	debugDrawLine("red", centerPoint.intersectionPoint, centerPoint.intersectionEnd);
 	/* debugDrawLine("red", leftIntersectionPoint, leftPoint.intersectionEnd); */
 	debugDrawLine("purple", centerPoint.intersectionPoint, centerPoint.normalEnd);
@@ -438,4 +396,71 @@ function debugDrawLine(colour, start, end) {
 	context.lineTo(end.x, end.y);
 	context.closePath();
 	context.stroke();
+}
+
+function rayReflection_v2(initial, final) {
+	input.p1 = initial;
+	input.p2 = final;
+	output.fraction = 1;
+	var rayDone = false;
+	var rayReflect = false;
+	var fraction;
+	var intersectionPoint = new b2Vec2();
+	var angleOfIntersection;
+	var intersectionEnd = new b2Vec2();
+	var normalEnd = new b2Vec2();
+	var reflectionAngle;
+	var reflectedEnd = new b2Vec2();
+
+	var targetBody;
+	var targetFixture;
+	
+	for(body = world.GetBodyList(); body; body = body.GetNext())    {
+		for(fixture = body.GetFixtureList(); fixture; fixture = fixture.GetNext()) {
+			if(!fixture.RayCast(output, input) && !rayDone) {
+				console.log("NOT");
+				fraction = 1;
+				continue;
+			}
+			else if(output.fraction < closestFraction && !rayDone)  {
+				console.log("hit");
+				fraction = output.fraction;
+				rayDone = true;
+				// Position of intersection point at the mirror
+				
+				if(body.GetUserData().Type == "Mirror") {
+					rayReflect = true;
+					targetBody = body;
+					targetFixture = fixture;
+				}
+			}
+		}
+	}
+	intersectionPoint.x = initial.x + fraction * (final.x - initial.x);
+	intersectionPoint.y = initial.y + fraction * (final.y - initial.y);
+	if(rayReflect) {
+		// Calculate the angle between intersectionPoint and initialPoint
+		angleOfIntersection = angleOfTwoPoints(initial, initial, intersectionPoint);
+		console.log("Angle of intersection: " + angleOfIntersection);
+		// Set the one end is the vertex end of the shape
+		intersectionEnd = nearest_vertex_contact(intersectionPoint, rotated_vertex_array(targetBody));
+		//console.log(intersectionEnd);
+		
+		normalEnd = rotated_vertex(intersectionEnd, intersectionPoint, 90, targetFixture, 25);
+		// Angle of reflection
+		reflectionAngle = angleOfTwoPoints(initial, intersectionPoint, normalEnd);
+		/* console.log("Angle = " + refl_angle); */
+		reflectedEnd = rotated_vertex(normalEnd, intersectionPoint, reflectionAngle, targetFixture, 50);
+	} else {
+		intersectionEnd = intersectionPoint;
+		normalEnd = intersectionPoint;
+		reflectedEnd = intersectionPoint;
+	}
+	/* console.log(intersectionPoint);
+	   console.log(intersectionEnd); */
+	return {startPoint: initial,
+		intersectionPoint: intersectionPoint,
+		intersectionEnd: intersectionEnd,
+		normalEnd: normalEnd,
+		reflectedEnd: reflectedEnd};
 }
