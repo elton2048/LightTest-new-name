@@ -1,3 +1,20 @@
+/*
+   Creator: Lee Ka Chun, Elton
+
+   Physics file for breaking the wall and reflection
+
+   To get the reflection part. Three variables are used(centerPoint, leftPoint, rightPoint. There structure are as follow:
+   startPoint(b2Vec2): The coordinates of the start point
+   intersectionPoint(b2Vec2): The coordinates of the intersection point to the wall or the mirror
+   The following three variable only used for reflection. The are the same as intersectionPoint if not reflection.
+   intersectionEnd(b2Vec2): The coordinates of the intersection point end.
+   normalEnd(b2Vec2): The coordinates of the normal end. Length of normal is fixed.
+   reflectedEnd(b2Vec2): The coordinates of the reflection. End point should be depends on the length of ray. Fixed in this stage.
+   
+   centerPoint: The data of the center of the ray.
+   leftPoint: The data of the left part of the ray.
+   rightPoint: The data of the right part of the ray.
+*/
 var    b2Vec2 = Box2D.Common.Math.b2Vec2
     ,      b2BodyDef = Box2D.Dynamics.b2BodyDef
     ,      b2Body = Box2D.Dynamics.b2Body
@@ -22,63 +39,60 @@ var context = canvas.get(0).getContext('2d');
 
 var debugDraw = new b2DebugDraw();
 debugDraw.SetSprite ( document.getElementById ("canvas").getContext ("2d"));
-/* debugDraw.SetDrawScale(30);     //define scale */
 debugDraw.SetAlpha(1);
 debugDraw.SetFillAlpha(.3);    //define transparency
-/* debugDraw.SetLineThickness(1.0); */
 debugDraw.SetFlags(b2DebugDraw.e_shapeBit | b2DebugDraw.e_jointBit);
 world.SetDebugDraw(debugDraw);
 
 window.setInterval(update,1000/60);
 
-//box
+// Variable which can be fetched from other file.
+var centerPoint;
+var leftPoint;
+var rightPoint;
 
-var bodyDef = new b2BodyDef;
-bodyDef.type = b2Body.b2_staticBody;
-bodyDef.position.Set(200,80);
+// Variable used in the game
+var wallWidth = 6;
+var wallSpace = 20; // The width when the wall is broken.
+var closeTime = 100; // When will the wall recover
+var startWall_x = 100;
+var startWall_y = 50;
+var wallLength = 150;
+var wallHeight = 150;
 
-// Change TEST ANGLE
-// Need conversion to degree, clockwise direction for degree
-bodyDef.angle = 150 * (Math.PI/180);
-bodyDef.userData = {Type:"Mirror"};
+var initialPoint = new b2Vec2(10, 30); // The initial point to have ray
+var p2 = new b2Vec2(400, 200); // Default end point.
+var ray_width = 15 / 2; // Ray length, change the first number only.
 
-var fixDef = new b2FixtureDef;
-fixDef.filter.categoryBits = 1;
 
-fixDef.density = 10.0;
-fixDef.friction = 0.5;
-fixDef.restitution = .5;
-/* fixDef.isSensor = true; */
+// Wall building
+var startWall = new b2Vec2(startWall_x, startWall_y);
+var endWall_x = new b2Vec2(startWall_x, startWall_y + wallHeight - wallWidth);
+var endWall_y = new b2Vec2(startWall_x + wallLength - wallWidth, startWall_y);
+var sizeWall_v = new b2Vec2(wallWidth, wallLength);
+var sizeWall_h = new b2Vec2(wallHeight, wallWidth);
+wallBuilding(startWall, sizeWall_v);
+wallBuilding(startWall, sizeWall_h);
+wallBuilding(endWall_x, sizeWall_h);
+wallBuilding(endWall_y, sizeWall_v);
 
-fixDef.shape = new b2PolygonShape;
-fixDef.shape.SetAsBox(10,50);
-
-var box1 = world.CreateBody(bodyDef);
-box1.CreateFixture(fixDef);
 //end
 
-//box
-
-var bodyDef1 = new b2BodyDef;
-bodyDef1.type = b2Body.b2_staticBody;
-bodyDef1.position.Set(400,80);
-
-// Change TEST ANGLE
-// Need conversion to degree, clockwise direction for degree
-bodyDef1.angle = 80 * (Math.PI/180);
-bodyDef1.userData = {Type:"Mirror"};
-
-var box2 = world.CreateBody(bodyDef1);
-box2.CreateFixture(fixDef);
+/* 
+   For building the mirror
+   First parameter: Position
+   Second parameter: Size
+   Third parameter: Angle
+*/
+mirrorBuilding(new b2Vec2(200, 80), new b2Vec2(10, 50), 150);
+mirrorBuilding(new b2Vec2(300, 80), new b2Vec2(10, 50), 80);
 //end
 
+// Variable for Ray Cast
 var input = new b2RayCastInput();
 var output = new b2RayCastOutput();
 
 // Global use
-var initialPoint = new b2Vec2(10, 30); // The initial point to have ray
-var p2 = new b2Vec2(400, 200);
-var ray_width = 15 / 2;
 var ray_length;
 var intersectionPoint = new b2Vec2();
 var leftIntersectionPoint = new b2Vec2();
@@ -92,25 +106,107 @@ var shape = world.GetBodyList().GetFixtureList().GetShape().GetVertices();
 output.fraction = 1;
 console.log(world.GetBodyList());
 console.log(world.GetBodyList().GetPosition());
-console.log(world.GetBodyList().GetFixtureList());
+console.log(world.GetBodyList().GetFixtureList().GetAABB());
 console.log(world.GetBodyList().GetNext().GetFixtureList());
-console.log(bodyDef);
 
 var i = 0;
+
+var timer = -1;
+
+// Internal variable for calculating the wall
+var wallRotation;
+var wallPlace;
+
 function update() {
 	i++;
 	world.Step(1/60 ,10 ,10);
 	world.DrawDebugData();
 	raytest();
+
+	// Part to break the wall and recover
+	if(isMouseDown){
+		var body = getBodyAtMouse();
+		if(body) {
+			console.log(body.GetFixtureList());
+			var aabb = body.GetFixtureList().GetAABB();
+			var upperLength;
+			var upperSize;
+			var lowerStartWall;
+			var lowerStart_y;
+			if(body.GetUserData().Rotation == "Horizontal") {
+				// Left part of wall
+				if((mouseX - aabb.lowerBound.x) / 2 > wallSpace){
+					upperLength = mouseX - aabb.lowerBound.x;
+				} else {
+					upperLength = wallSpace / 2;
+				}
+				upperSize = new b2Vec2(upperLength - wallSpace / 2, wallWidth);
+				wallBuilding(body.GetUserData().Start, upperSize);
+
+				// Right part of wall
+				lowerLength = aabb.upperBound.x - mouseX;
+				if(lowerLength < wallSpace) {
+					lowerSize = new b2Vec2(0, wallWidth);
+					lowerStartWall = new b2Vec2(aabb.upperBound.x, body.GetUserData().Start.y);
+				} else {
+					lowerSize = new b2Vec2(lowerLength - wallSpace, wallWidth);
+					lowerStartWall = new b2Vec2(mouseX + wallSpace, body.GetUserData().Start.y);
+				}
+				wallBuilding(lowerStartWall, lowerSize);
+			}
+			// Vertical part
+			else if(body.GetUserData().Rotation == "Vertical") {
+				// Upper part of wall
+				if((mouseY - aabb.lowerBound.y) / 2 > wallSpace){
+					upperLength = mouseY - aabb.lowerBound.y;
+				} else {
+					upperLength = wallSpace / 2;
+				}
+				upperSize = new b2Vec2(wallWidth, upperLength - wallSpace / 2);
+				wallBuilding(body.GetUserData().Start, upperSize);
+
+				// Lower part of wall
+				lowerLength = aabb.upperBound.y - mouseY;
+				lowerSize = new b2Vec2(wallWidth, lowerLength - wallSpace);
+				lowerStartWall = new b2Vec2(body.GetUserData().Start.x, mouseY + wallSpace);
+
+				if(lowerLength < wallSpace) {
+					lowerSize = new b2Vec2(wallWidth, 0);
+					lowerStartWall = new b2Vec2(body.GetUserData().Start.x, aabb.upperBound.y);
+				} else {
+					lowerSize = new b2Vec2(wallWidth, lowerLength - wallSpace);
+					lowerStartWall = new b2Vec2(body.GetUserData().Start.x, mouseY + wallSpace);
+				}
+				wallBuilding(lowerStartWall, lowerSize);
+			}
+			// Record the wall rotation
+			wallRotation = body.GetUserData().Rotation;
+			wallPlace = body.GetUserData().Start;
+			
+			world.DestroyBody(body);
+			timer = 1;
+			isMouseDown = false;
+		}
+	}
+	if(timer > 0 && timer < closeTime) {
+		timer++;
+	}
+	if(timer == closeTime) {
+		if(wallRotation == "Horizontal")
+			wallBuilding(wallPlace, sizeWall_h);
+		else if(wallRotation == "Vertical")
+			wallBuilding(wallPlace, sizeWall_v);
+			
+		world.DestroyBody(world.GetBodyList().GetNext());
+		world.DestroyBody(world.GetBodyList().GetNext());
+		timer = -1;
+	}
 }
 
 function raytest() {
 	ray_length = subtracted_vertex(p2, initialPoint).Length();
 	input.maxFraction = 1;
 	closestFraction = 1;
-	var centerPoint;
-	var leftPoint;
-	var rightPoint;
 	// Create two point for the representation of light beam
 	var startOfBeam =
 	[rotated_vertex(intersectionPoint, initialPoint, -90, "NULL", ray_width),
@@ -124,12 +220,7 @@ function raytest() {
 	var f = new b2FixtureDef();
 	var rayDone = false;
 
-
-	/* This part is to get the vertices of body for rendering use, not use in background calculation in this moment. */
-	for(b = world.GetBodyList(); b; b = b.GetNext()) {
-		/* rotated_vertex_array(b); */
-	}
-
+	// Part to get the fraction point for three rays
 	var fractionPoint = [];
 	for(i = 0; i < 3; i++) {
 		switch(i){
@@ -156,66 +247,127 @@ function raytest() {
 				else if(output.fraction < closestFraction) {
 					fractionPoint[i] = output.fraction;
 					rayDone = true;
-					console.log(fractionPoint);
+					/* console.log(fractionPoint); */
 				}
 			}
 		}
 	}
 	/* End of get vertices*/
 
-	/* input.p1 = initialPoint;
-	   input.p2 = p2; */
-	/* input.p1 = startOfBeam[0];
-	   input.p2 = endOfBeam[0]; */
-
+	// Get the point after reflection
 	centerPoint = rayReflection_v2(initialPoint, p2);
+	leftPoint = rayReflection_v2(startOfBeam[0], endOfBeam[0]);
+	rightPoint = rayReflection_v2(startOfBeam[1], endOfBeam[1]);
 
 	intersectionPoint.x = initialPoint.x + closestFraction * (p2.x - initialPoint.x);
 	intersectionPoint.y = initialPoint.y + closestFraction * (p2.y - initialPoint.y);
 
-	leftIntersectionPoint.x = startOfBeam[0].x + fractionPoint[1] * (endOfBeam[0].x - startOfBeam[0].x);
-	leftIntersectionPoint.y = startOfBeam[0].y + fractionPoint[1] * (endOfBeam[0].y - startOfBeam[0].y);
-
-	rightIntersectionPoint.x = startOfBeam[1].x + closestFraction * (endOfBeam[1].x - startOfBeam[1].x);
-	rightIntersectionPoint.y = startOfBeam[1].y + closestFraction * (endOfBeam[1].y - startOfBeam[1].y);
-	/* console.log(intersectionEnd); */
-	/* normalEnd.x = normalEnd.x;
-	   normalEnd.y = normalEnd.y; */
-
 	debugDrawLine("rgb(255, 255, 255)", centerPoint.startPoint, centerPoint.intersectionPoint);
-	/* debugDrawLine("orange", leftPoint.startPoint, leftPoint.intersectionPoint);
-	   debugDrawLine("green", leftPoint.startPoint, rightPoint.startPoint);
-	   debugDrawLine("orange", rightPoint.startPoint, rightPoint.intersectionPoint); */
+	debugDrawLine("orange", leftPoint.startPoint, leftPoint.intersectionPoint);
+	debugDrawLine("green", leftPoint.startPoint, rightPoint.startPoint);
+	debugDrawLine("orange", rightPoint.startPoint, rightPoint.intersectionPoint);
 	debugDrawLine("red", centerPoint.intersectionPoint, centerPoint.intersectionEnd);
-	/* debugDrawLine("red", leftIntersectionPoint, leftPoint.intersectionEnd); */
+	debugDrawLine("red", leftPoint.intersectionPoint, leftPoint.intersectionEnd);
 	debugDrawLine("purple", centerPoint.intersectionPoint, centerPoint.normalEnd);
 	debugDrawLine("yellow", centerPoint.intersectionPoint, centerPoint.reflectedEnd);
 
 }
 
-document.addEventListener("mousedown", function(e) {
+// Mouse part
+var mouseX, mouseY, mousePVec, isMouseDown, selectedBody, mouseJoint;
+var isMouseUp;
+var canvasPosition = getElementPosition(document.getElementById("canvas"));
+function handleMouseMove(e) {
+	mouseX = (e.clientX - canvasPosition.x);
+	mouseY = (e.clientY - canvasPosition.y);
+}
+function getBodyAtMouse() {
+	mousePVec = new b2Vec2(mouseX, mouseY);
+	var aabb = new b2AABB();
+	aabb.lowerBound.Set(mouseX - 0.001, mouseY - 0.001);
+	aabb.upperBound.Set(mouseX + 0.001, mouseY + 0.001);
+	
+	// Query the world for overlapping shapes.
+	
+	selectedBody = null;
+	world.QueryAABB(getBodyCB, aabb);
+	return selectedBody;
+}
+
+function getBodyCB(fixture) {
+	if(fixture.GetBody().GetType() == b2Body.b2_staticBody) {
+		if(fixture.GetShape().TestPoint(fixture.GetBody().GetTransform(), mousePVec)) {
+		    selectedBody = fixture.GetBody();
+		    return false;
+		}
+	}
+	return true;
+}
+
+function getElementPosition(element) {
+	var elem=element, tagname="", x=0, y=0;
+	
+	while((typeof(elem) == "object") && (typeof(elem.tagName) != "undefined")) {
+		y += elem.offsetTop;
+		x += elem.offsetLeft;
+		tagname = elem.tagName.toUpperCase();
+		
+		if(tagname == "BODY")
+		    elem=0;
+		
+		if(typeof(elem) == "object") {
+		    if(typeof(elem.offsetParent) == "object")
+		        elem = elem.offsetParent;
+		}
+	}
+	
+	return {x: x, y: y};
+}
+
+document.addEventListener("click", function(e) {
+	isMouseUp = false;
 	switch (e.which) {
+		// Left click
 		case 1:
-			console.log(e.layerY);
 			p2.x = e.layerX;
 			p2.y = e.layerY;
-			console.log(intersectionPoint);
-			console.log(normalEnd);
 			break;
+		// Middle click
 		case 2:
 			initialPoint.x = e.layerX;
 			initialPoint.y = e.layerY;
+			break;
+		// Right click
+		case 3:
+			if(timer == -1) {
+				isMouseDown = true;
+				handleMouseMove(e);
+			}
 			break;
 		default:
 			// Should not happen
 			break;
 	}
 });
+// Right click has no menu
+$(document).bind("contextmenu", function(e) {
+    return false;
+});
 
-// Calculate the new vertex after rotation
-var a = new b2Vec2(0, 2);
-var b = new b2Vec2(0, 0);
-var c = new b2Vec2(-1, -2);
+function debugDrawLine(colour, start, end) {
+	context.strokeStyle = colour;
+
+	context.beginPath();
+	context.moveTo(start.x, start.y);
+	context.lineTo(end.x, end.y);
+	context.closePath();
+	context.stroke();
+}
+
+/*
+   START PART FOR THE FUNCTION IN INTERNAL CALCULATION
+   CHANGE MUST BE MADE CAUTIOUSLY
+*/
 
 /* Calculate the rotated vertex of a rotation
    Perform the action like a vector rotation
@@ -388,15 +540,6 @@ function rayReflection(initial, final, fraction, body, fixture) {
 		reflectedEnd: reflectedEnd};
 }
 
-function debugDrawLine(colour, start, end) {
-	context.strokeStyle = colour;
-
-	context.beginPath();
-	context.moveTo(start.x, start.y);
-	context.lineTo(end.x, end.y);
-	context.closePath();
-	context.stroke();
-}
 
 function rayReflection_v2(initial, final) {
 	input.p1 = initial;
@@ -404,7 +547,7 @@ function rayReflection_v2(initial, final) {
 	output.fraction = 1;
 	var rayDone = false;
 	var rayReflect = false;
-	var fraction;
+	var fraction = 1;
 	var intersectionPoint = new b2Vec2();
 	var angleOfIntersection;
 	var intersectionEnd = new b2Vec2();
@@ -418,21 +561,28 @@ function rayReflection_v2(initial, final) {
 	for(body = world.GetBodyList(); body; body = body.GetNext())    {
 		for(fixture = body.GetFixtureList(); fixture; fixture = fixture.GetNext()) {
 			if(!fixture.RayCast(output, input) && !rayDone) {
-				console.log("NOT");
+				/* console.log("NOT"); */
 				fraction = 1;
 				continue;
 			}
-			else if(output.fraction < closestFraction && !rayDone)  {
-				console.log("hit");
-				fraction = output.fraction;
-				rayDone = true;
-				// Position of intersection point at the mirror
-				
-				if(body.GetUserData().Type == "Mirror") {
-					rayReflect = true;
-					targetBody = body;
-					targetFixture = fixture;
+			else if(output.fraction < closestFraction)  {
+				/* console.log("hit"); */
+				if(fraction > output.fraction){ 
+					fraction = output.fraction;
+					switch(body.GetUserData().Type) {
+						// Position of intersection point at the mirror
+						case "Mirror":
+							rayReflect = true;
+							targetBody = body;
+							targetFixture = fixture;
+							break;
+						case "Wall":
+							rayReflect = false;
+							break;
+					}
 				}
+				rayDone = true;
+
 			}
 		}
 	}
@@ -441,7 +591,7 @@ function rayReflection_v2(initial, final) {
 	if(rayReflect) {
 		// Calculate the angle between intersectionPoint and initialPoint
 		angleOfIntersection = angleOfTwoPoints(initial, initial, intersectionPoint);
-		console.log("Angle of intersection: " + angleOfIntersection);
+		/* console.log("Angle of intersection: " + angleOfIntersection); */
 		// Set the one end is the vertex end of the shape
 		intersectionEnd = nearest_vertex_contact(intersectionPoint, rotated_vertex_array(targetBody));
 		//console.log(intersectionEnd);
@@ -463,4 +613,53 @@ function rayReflection_v2(initial, final) {
 		intersectionEnd: intersectionEnd,
 		normalEnd: normalEnd,
 		reflectedEnd: reflectedEnd};
+}
+
+function wallBuilding(startPoint, size) {
+	var position = new b2Vec2();
+	position.x = startPoint.x + size.x / 2;
+	position.y = startPoint.y + size.y / 2;
+	// Wall building
+	
+	var wall1 = new b2BodyDef;
+	wall1.type = b2Body.b2_staticBody;
+	wall1.position.Set(position.x, position.y);
+	if(size.x == wallWidth) 
+		wall1.userData = {Type: "Wall", Start: startPoint, Rotation: "Vertical"};
+	else
+		wall1.userData = {Type: "Wall", Start: startPoint, Rotation: "Horizontal"};
+	
+	var wall1Fix = new b2FixtureDef;
+	wall1Fix.filter.categoryBits = 1;
+	
+	wall1Fix.density = 10.0;
+	wall1Fix.friction = 0.5;
+	wall1Fix.restitution = .5;
+	
+	wall1Fix.shape = new b2PolygonShape;
+	wall1Fix.shape.SetAsBox(size.x / 2, size.y / 2);
+	
+	var wall1World = world.CreateBody(wall1);
+	wall1World.CreateFixture(wall1Fix);
+	//end
+
+}
+
+function mirrorBuilding(startPoint, size, angle) {
+	var position = new b2Vec2();
+	position.x = startPoint.x + size.x;
+	position.y = startPoint.y + size.y;
+	
+	var mirror = new b2BodyDef;
+	mirror.type = b2Body.b2_staticBody;
+	mirror.position.Set(position.x, position.y);
+	mirror.angle = angle * (Math.PI/180);
+	mirror.userData = {Type: "Mirror"};
+
+	var mirrorFix = new b2FixtureDef;
+	mirrorFix.shape = new b2PolygonShape;
+	mirrorFix.shape.SetAsBox(size.x, size.y);
+	
+	var mirrorWorld = world.CreateBody(mirror);
+	mirrorWorld.CreateFixture(mirrorFix);
 }
