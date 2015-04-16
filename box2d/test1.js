@@ -62,7 +62,7 @@ var wallHeight = 150;
 
 var initialPoint = new b2Vec2(10, 30); // The initial point to have ray
 var p2 = new b2Vec2(400, 200); // Default end point.
-var ray_width = 15 / 2; // Ray length, change the first number only.
+var ray_width = 15 / 2; // Ray width, change the first number only.
 
 
 // Wall building
@@ -262,6 +262,7 @@ function raytest() {
 	intersectionPoint.x = initialPoint.x + closestFraction * (p2.x - initialPoint.x);
 	intersectionPoint.y = initialPoint.y + closestFraction * (p2.y - initialPoint.y);
 
+	// For drawing the debug information in debug plant, delete if not used
 	debugDrawLine("rgb(255, 255, 255)", centerPoint.startPoint, centerPoint.intersectionPoint);
 	debugDrawLine("orange", leftPoint.startPoint, leftPoint.intersectionPoint);
 	debugDrawLine("green", leftPoint.startPoint, rightPoint.startPoint);
@@ -270,6 +271,7 @@ function raytest() {
 	debugDrawLine("red", leftPoint.intersectionPoint, leftPoint.intersectionEnd);
 	debugDrawLine("purple", centerPoint.intersectionPoint, centerPoint.normalEnd);
 	debugDrawLine("yellow", centerPoint.intersectionPoint, centerPoint.reflectedEnd);
+	// End
 
 }
 
@@ -514,32 +516,6 @@ function initialRay(initial, fraction, target) {
 		normalEnd: intersectionPoint,
 		reflectedEnd: intersectionPoint};
 }
-
-function rayReflection(initial, final, fraction, body, fixture) {
-	// Position of intersection point at the mirror
-	var target = new b2Vec2();
-	target.x = initial.x + fraction * (final.x - initial.x);
-	target.y = initial.y + fraction * (final.y - initial.y);
-	
-	// Calculate the angle between intersectionPoint and initialPoint
-	var angleOfIntersection = angleOfTwoPoints(initial, initial, target);
-	console.log("Angle of intersection: " + angleOfIntersection);
-	// Set the one end is the vertex end of the shape
-	var intersectionEnd = nearest_vertex_contact(target, rotated_vertex_array(body));
-	//console.log(intersectionEnd);
-	
-	var normalEnd = rotated_vertex(intersectionEnd, target, 90, fixture, 25);
-	// Angle of reflection
-	var refl_angle = angleOfTwoPoints(initial, target, normalEnd);
-	/* console.log("Angle = " + refl_angle); */
-	var reflectedEnd = rotated_vertex(normalEnd, target, refl_angle, fixture, 50);
-	return {startPoint: initial,
-		intersectionPoint: target,
-		intersectionEnd: intersectionEnd,
-		normalEnd: normalEnd,
-		reflectedEnd: reflectedEnd};
-}
-
 
 function rayReflection_v2(initial, final) {
 	input.p1 = initial;
