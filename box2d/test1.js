@@ -37,12 +37,14 @@ var world = new b2World(new b2Vec2(0,10), true);
 var canvas = $('#canvas');
 var context = canvas.get(0).getContext('2d');
 
+// For building the debug drawing, delete if not used.
 var debugDraw = new b2DebugDraw();
 debugDraw.SetSprite ( document.getElementById ("canvas").getContext ("2d"));
 debugDraw.SetAlpha(1);
 debugDraw.SetFillAlpha(.3);    //define transparency
 debugDraw.SetFlags(b2DebugDraw.e_shapeBit | b2DebugDraw.e_jointBit);
 world.SetDebugDraw(debugDraw);
+// End
 
 window.setInterval(update,1000/60);
 
