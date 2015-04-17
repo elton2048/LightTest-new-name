@@ -59,8 +59,9 @@ var wallSpace = 20; // The width when the wall is broken.
 var closeTime = 100; // When will the wall recover
 var startWall_x = 100;
 var startWall_y = 50;
-var wallLength = 400;
-var wallHeight = 300;
+var wallLength = 800;
+var wallHeight = 600;
+var fixedRayStrength = 800; // Ray strength for two points
 
 var initialPoint = new b2Vec2(10, 30); // The initial point to have ray
 var p2 = new b2Vec2(400, 200); // Default end point.
@@ -77,8 +78,10 @@ wallBuilding(startWall, sizeWall_v);
 wallBuilding(startWall, sizeWall_h);
 wallBuilding(endWall_x, sizeWall_h);
 wallBuilding(endWall_y, sizeWall_v);
-
 //end
+
+// Obstacle setting
+wallBuilding(new b2Vec2(500, 60), new b2Vec2(wallWidth, 300), 0);
 
 /* 
    For building the mirror
@@ -86,8 +89,7 @@ wallBuilding(endWall_y, sizeWall_v);
    Second parameter: Size
    Third parameter: Angle
 */
-mirrorBuilding(new b2Vec2(200, 80), new b2Vec2(10, 50), 150);
-mirrorBuilding(new b2Vec2(300, 80), new b2Vec2(10, 50), 80);
+mirrorBuilding(new b2Vec2(500, 500), new b2Vec2(10, 100), 90);
 //end
 
 // Variable for Ray Cast
@@ -206,7 +208,9 @@ function update() {
 }
 
 function raytest() {
+	// Ray length based on two points centerPoint
 	ray_length = subtracted_vertex(p2, initialPoint).Length();
+	
 	input.maxFraction = 1;
 	closestFraction = 1;
 	// Create two point for the representation of light beam
@@ -260,6 +264,7 @@ function raytest() {
 	centerPoint = rayReflection_v2(initialPoint, p2);
 	leftPoint = rayReflection_v2(startOfBeam[0], endOfBeam[0]);
 	rightPoint = rayReflection_v2(startOfBeam[1], endOfBeam[1]);
+	firstReflected = rayReflection_v2(centerPoint.intersectionPoint, centerPoint.reflectedEnd);
 
 	intersectionPoint.x = initialPoint.x + closestFraction * (p2.x - initialPoint.x);
 	intersectionPoint.y = initialPoint.y + closestFraction * (p2.y - initialPoint.y);
@@ -272,7 +277,7 @@ function raytest() {
 	debugDrawLine("red", centerPoint.intersectionPoint, centerPoint.intersectionEnd);
 	debugDrawLine("red", leftPoint.intersectionPoint, leftPoint.intersectionEnd);
 	debugDrawLine("purple", centerPoint.intersectionPoint, centerPoint.normalEnd);
-	debugDrawLine("yellow", centerPoint.intersectionPoint, centerPoint.reflectedEnd);
+	debugDrawLine("yellow", firstReflected.startPoint, firstReflected.reflectedEnd);
 	// End
 
 }
@@ -333,8 +338,14 @@ document.addEventListener("click", function(e) {
 	switch (e.which) {
 		// Left click
 		case 1:
-			p2.x = e.layerX;
-			p2.y = e.layerY;
+			// This version is to have fixed ray strength. Mouse point only affect the direction of the light
+			var tempPoint = new b2Vec2(e.layerX - initialPoint.x, e.layerY - initialPoint.y);
+			tempPoint.Normalize();
+			tempPoint.Multiply(fixedRayStrength);
+			console.log(tempPoint);
+			p2 = added_vertex(tempPoint, initialPoint);
+			/* p2.x = e.layerX;
+			   p2.y = e.layerY; */
 			break;
 		// Middle click
 		case 2:
@@ -578,7 +589,7 @@ function rayReflection_v2(initial, final) {
 		// Angle of reflection
 		reflectionAngle = angleOfTwoPoints(initial, intersectionPoint, normalEnd);
 		/* console.log("Angle = " + refl_angle); */
-		reflectedEnd = rotated_vertex(normalEnd, intersectionPoint, reflectionAngle, targetFixture, 50);
+		reflectedEnd = rotated_vertex(normalEnd, intersectionPoint, reflectionAngle, targetFixture, ray_length);
 	} else {
 		intersectionEnd = intersectionPoint;
 		normalEnd = intersectionPoint;
