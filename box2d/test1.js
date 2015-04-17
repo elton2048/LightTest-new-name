@@ -1,5 +1,4 @@
 /*
-   CHANGED STATEMENT.
    Creator: Lee Ka Chun, Elton
 
    Physics file for breaking the wall and reflection
@@ -60,8 +59,8 @@ var wallSpace = 20; // The width when the wall is broken.
 var closeTime = 100; // When will the wall recover
 var startWall_x = 100;
 var startWall_y = 50;
-var wallLength = 150;
-var wallHeight = 150;
+var wallLength = 400;
+var wallHeight = 300;
 
 var initialPoint = new b2Vec2(10, 30); // The initial point to have ray
 var p2 = new b2Vec2(400, 200); // Default end point.
@@ -72,8 +71,8 @@ var ray_width = 15 / 2; // Ray width, change the first number only.
 var startWall = new b2Vec2(startWall_x, startWall_y);
 var endWall_x = new b2Vec2(startWall_x, startWall_y + wallHeight - wallWidth);
 var endWall_y = new b2Vec2(startWall_x + wallLength - wallWidth, startWall_y);
-var sizeWall_v = new b2Vec2(wallWidth, wallLength);
-var sizeWall_h = new b2Vec2(wallHeight, wallWidth);
+var sizeWall_v = new b2Vec2(wallWidth, wallHeight);
+var sizeWall_h = new b2Vec2(wallLength, wallWidth);
 wallBuilding(startWall, sizeWall_v);
 wallBuilding(startWall, sizeWall_h);
 wallBuilding(endWall_x, sizeWall_h);
